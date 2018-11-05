@@ -9,57 +9,52 @@ import (
 
 //Interface to provide functions to generate query
 type providerQuery interface {
-	viewAll(table string)(query string , err error)
-	insert(table string)(query string, values []interface{}, err error)
-	delete(table string)(query string, err error)
-	update(table string)(query string, values []interface{}, err error)
-	where(operatorCondition, operationBetweenCondition string)(query string, values []interface{}, err error)
+	ViewAll(table string)(query string , err error)
+	Insert(table string)(query string, values []interface{}, err error)
+	Delete(table string)(query string, err error)
+	Update(table string)(query string, values []interface{}, err error)
+	Where(operatorCondition, operationBetweenCondition string)(query string, values []interface{}, err error)
 }
 
 /*
 	Defining the body function
 */
 //Function to generating query for query SELECT *
-func (s structModel)viewAll(table string)(query string, err error){
+func (s structModel)ViewAll(table string)(query string, err error){
 	if s.err != nil{
 		return "", s.err
 	}
-
+	var arrQuery []string
 	query = "SELECT"
 	for i, _ := range s.value{
-		keyValue := s.key[i]
-		query += " " +keyValue + ","
+		arrQuery = append(arrQuery, " " +s.key[i])
 	}
-	query = query[0:(len(query)-1)]
-	query += " FROM " + table
+	query = query + strings.Join(arrQuery, ",") + " FROM " + table
 	return query,nil
 }
 
 //Function to generating query for query INSERT
-func (s structModel)insert(table string)(query string, values []interface{}, err error){
+func (s structModel)Insert(table string)(query string, values []interface{}, err error){
 	if s.err != nil{
 		return "", nil, s.err
 	}
-
+	var arrQuery, valArr []string
 	query = "INSERT INTO " + table +"("
 	queryForValues := " VALUES("
 	listValue := make([]interface{}, 0)
 
 	for i, _ := range s.value{
-		query += " " + s.key[i] + ","
-		queryForValues += " $" + strconv.Itoa(i+1) +","
+		arrQuery = append(arrQuery, " " + s.key[i])
+		valArr = append(valArr, " $" + strconv.Itoa(i+1))
 		listValue = append(listValue, s.value[i])
 	}
-	query = query[0:len(query)-1]
-	query += ")"
-	queryForValues = queryForValues[0:len(queryForValues)-1]
-	queryForValues += ")"
-
+	query = query + strings.Join(arrQuery, ",") + ")"
+	queryForValues = queryForValues + strings.Join(valArr, ",") + ")"
 	return query + queryForValues, listValue, nil
 }
 
 //Function to generating query for query DELETE
-func (s structModel)delete(table string)(query string, err error){
+func (s structModel)Delete(table string)(query string, err error){
 	if s.err != nil{
 		return "", s.err
 	}
@@ -69,23 +64,23 @@ func (s structModel)delete(table string)(query string, err error){
 }
 
 //Function to generating query for query UPDATE
-func (s structModel)update(table string)(query string, values[]interface{}, err error){
+func (s structModel)Update(table string)(query string, values[]interface{}, err error){
 	if s.err != nil{
 		return "", nil, s.err
 	}
-
+	var arrQuery []string
 	query = "UPDATE " + table + " SET"
 	listValues := make([]interface{}, 0)
 	for i, _ := range s.value{
-		query += " " + s.key[i] + "= $" + strconv.Itoa(i+1) + ","
+		arrQuery = append(arrQuery, " " + s.key[i] + "= $" + strconv.Itoa(i+1))
 		listValues = append(listValues, s.value[i])
 	}
-	query = query[0:len(query)-1]
+	query = query + strings.Join(arrQuery, ",")
 	return query, listValues, nil
 }
 
 //Function to generating WHERE condition to the query
-func (s structModel)where(operatorCondition, operationBetweenCondition string)(query string, values[]interface{}, err error){
+func (s structModel)Where(operatorCondition, operationBetweenCondition string)(query string, values[]interface{}, err error){
 	if s.err != nil{
 		return "", nil, s.err
 	}
@@ -110,6 +105,40 @@ type structModel struct {
 	err error
 }
 
+type batchQuery interface {
+	InsertQuery(table string)(query string, err error)
+	ValueBatch()(query string, values []interface{}, err error)
+}
+
+func (batchStructModel)InsertQuery(table string)(query string, err error){
+
+	return "", nil
+}
+func (batchStructModel)ValueBatch()(query string, values []interface{}, err error){
+
+	return "", nil, nil
+}
+
+type batchStructModel struct {
+	values []structModel
+	err error
+}
+
+func ValueConversion(model interface{}) batchQuery{
+	if reflect.TypeOf(model).Kind() == reflect.Slice{
+		/*
+			Check if inside the slice is a struct
+		*/
+		value := reflect.TypeOf(model).Elem()
+		if reflect.TypeOf(value.Field(0)).Kind() != reflect.Struct{
+			return batchQuery(batchStructModel{err:errors.New("parameter must be a struct")})
+		}
+	}
+	convertedModel := batchStructModel{}
+	result := batchQuery(convertedModel)
+	return result
+}
+
 func Conversion(model interface{}) providerQuery {
 	/*
 		Returning error as validation to force function only accepting struct
@@ -118,6 +147,7 @@ func Conversion(model interface{}) providerQuery {
 	if reflect.TypeOf(model).Kind() != reflect.Struct{
 		return providerQuery(structModel{err:errors.New("parameter must be a struct")})
 	}
+
 
 	var keys []string
 	var vals []interface{}
@@ -137,9 +167,12 @@ func Conversion(model interface{}) providerQuery {
 		*/
 		if valueField.String() == "" {
 			continue
-		}
-		if typField.Type.String() == "int" || typField.Type.String() == "int64"{
-			if valueField.Int() == 0{continue}
+		}/*
+		/*
+			Skipping for nested struct
+		*/
+		if typField.Type.Kind() == reflect.Struct{
+			continue
 		}
 		keyValue, ok := typField.Tag.Lookup("db")
 		if !ok {
@@ -165,22 +198,29 @@ func Conversion(model interface{}) providerQuery {
 			}
 		}
 
+		dateVal, ok := typField.Tag.Lookup("date")
+		if ok && dateVal=="now"{
+			keys = append(keys, keyValue)
+			vals = append(vals, "now()")
+			continue
+		}
+		keys = append(keys, keyValue)
+		vals = append(vals, valueField.Interface().(interface{}))
+
 		/*
-			This part is used to check the data type to be converted correctly to be used in query
-			--------------------------------------------------------------------------------------
-			For temporary the assumption is int, int64 and bool to be treated differently
-		*/
-		if valueField.Type().String() == "int" || valueField.Type().String() == "int64" {
+			Bypassing type to interface{}
+
+		if valueField.Type().Kind() == reflect.Int || valueField.Type().Kind() == reflect.Int64 {
 			newInt := strconv.Itoa(int(valueField.Int()))
 			keys = append(keys, keyValue)
 			vals = append(vals, newInt)
-		} else if valueField.Type().String() == "bool" {
+		} else if valueField.Type().Kind() == reflect.Bool {
 			keys = append(keys, keyValue)
 			vals = append(vals, strconv.FormatBool(valueField.Bool()))
 		} else {
 			keys = append(keys, keyValue)
 			vals = append(vals, valueField.String())
-		}
+		}*/
 	}
 	convertedModel := structModel{key: keys,value: vals, err: nil}
 	result := providerQuery(convertedModel)
