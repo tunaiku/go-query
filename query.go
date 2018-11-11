@@ -153,6 +153,7 @@ func Conversion(model interface{}) providerQuery {
 
 	typeReflect := reflect.TypeOf(model)
 	valReflect := reflect.ValueOf(model)
+	elemReflect := reflect.ValueOf(model).Elem()
 	/*
 		Loop through the model to convert it to other model ('structModel')
 		to be treated as key and value
@@ -211,10 +212,13 @@ func Conversion(model interface{}) providerQuery {
 		valueCase, ok := typField.Tag.Lookup("case")
 		if ok {
 			if valueCase == "upper" {
-				valueField.SetString(strings.ToUpper(valueField.String()))
+				keys = append(keys, keyValue)
+				vals = append(vals, strings.ToUpper(valueField.String()))
 			} else if valueCase == "lower" {
-				valueField.SetString(strings.ToLower(valueField.String()))
+				keys = append(keys, keyValue)
+				vals = append(vals, strings.ToLower(valueField.String()))
 			}
+			continue
 		}
 
 		keys = append(keys, keyValue)
