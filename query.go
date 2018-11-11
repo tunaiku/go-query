@@ -199,15 +199,24 @@ func Conversion(model interface{}) providerQuery {
 
 		dateVal, ok := typField.Tag.Lookup("date")
 		if ok {
-			if dateVal =="now()"{
+			if dateVal == "now" {
 				keys = append(keys, keyValue)
 				vals = append(vals, "now()")
-			}else if dateVal == "CURRENT_TIMESTAMP"{
+			} else if dateVal == "CURRENT_TIMESTAMP" {
 				keys = append(keys, keyValue)
-				vals = append(vals, "CURRENT_TIMESTAMP")
+				vals = append(vals, "now")
 			}
 			continue
 		}
+		valueCase, ok := typField.Tag.Lookup("case")
+		if ok {
+			if valueCase == "upper" {
+				valueField.SetString(strings.ToUpper(valueField.String()))
+			} else if valueCase == "lower" {
+				valueField.SetString(strings.ToLower(valueField.String()))
+			}
+		}
+
 		keys = append(keys, keyValue)
 		vals = append(vals, valueField.Interface().(interface{}))
 
