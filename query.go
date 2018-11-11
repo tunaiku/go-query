@@ -198,15 +198,16 @@ func Conversion(model interface{}) providerQuery {
 		}
 
 		dateVal, ok := typField.Tag.Lookup("date")
-		if ok && dateVal == "now" {
-			keys = append(keys, keyValue)
-			vals = append(vals, "now()")
+		if ok {
+			if dateVal =="now()"{
+				keys = append(keys, keyValue)
+				vals = append(vals, "now()")
+			}else if dateVal == "CURRENT_TIMESTAMP"{
+				keys = append(keys, keyValue)
+				vals = append(vals, "CURRENT_TIMESTAMP")
+			}
 			continue
-		} else if ok && dateVal == "CURRENT_TIMESTAMP" {
-			keys = append(keys, keyValue)
-			vals = append(vals, "CURRENT_TIMESTAMP")
 		}
-
 		keys = append(keys, keyValue)
 		vals = append(vals, valueField.Interface().(interface{}))
 
