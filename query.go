@@ -201,10 +201,10 @@ func Conversion(model interface{}) providerQuery {
 		dateVal, ok := typField.Tag.Lookup("date")
 		if ok {
 			timeNow := time.Now()
-			insertTime,_ := time.Parse("2006-01-02 15:04:05", timeNow.String())
+			//insertTime,_ := time.Parse("2006-01-02 15:04:05", timeNow.String())
 			if dateVal == "now" {
 				keys = append(keys, keyValue)
-				vals = append(vals, insertTime)
+				vals = append(vals, timeNow)
 			} else if dateVal == "CURRENT_TIMESTAMP" {
 				keys = append(keys, keyValue)
 				vals = append(vals, "now")
