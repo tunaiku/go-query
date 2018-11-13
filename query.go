@@ -222,24 +222,9 @@ func Conversion(model interface{}) providerQuery {
 			}
 			continue
 		}
-
 		keys = append(keys, keyValue)
 		vals = append(vals, valueField.Interface().(interface{}))
 
-		/*
-				Bypassing type to interface{}
-
-			if valueField.Type().Kind() == reflect.Int || valueField.Type().Kind() == reflect.Int64 {
-				newInt := strconv.Itoa(int(valueField.Int()))
-				keys = append(keys, keyValue)
-				vals = append(vals, newInt)
-			} else if valueField.Type().Kind() == reflect.Bool {
-				keys = append(keys, keyValue)
-				vals = append(vals, strconv.FormatBool(valueField.Bool()))
-			} else {
-				keys = append(keys, keyValue)
-				vals = append(vals, valueField.String())
-			}*/
 	}
 	convertedModel := structModel{key: keys, value: vals, err: nil}
 	result := providerQuery(convertedModel)
