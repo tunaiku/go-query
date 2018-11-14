@@ -174,6 +174,9 @@ func Conversion(model interface{}) providerQuery {
 		if typField.Type.Kind() == reflect.Struct {
 			continue
 		}
+		if _, ok := typField.Tag.Lookup("skip"); ok {
+			continue
+		}
 		keyValue, ok := typField.Tag.Lookup("db")
 		if !ok {
 			/*
