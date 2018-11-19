@@ -13,7 +13,7 @@ type providerQuery interface {
 	ViewAll(table string) (query string, err error)
 	Insert(table string) (query string, values []interface{}, err error)
 	Delete(table string) (query string, err error)
-	Update(table string) (query string, values []interface{}, err error)
+	Update(primary, table string) (query string, values []interface{}, err error)
 	Where(operatorCondition, operationBetweenCondition string) (query string, values []interface{}, err error)
 }
 
@@ -65,7 +65,7 @@ func (s structModel) Delete(table string) (query string, err error) {
 }
 
 //Function to generating query for query UPDATE
-func (s structModel) Update(table string) (query string, values []interface{}, err error) {
+func (s structModel) Update(primary, table string) (query string, values []interface{}, err error) {
 	if s.err != nil {
 		return "", nil, s.err
 	}
@@ -73,6 +73,9 @@ func (s structModel) Update(table string) (query string, values []interface{}, e
 	query = "UPDATE " + table + " SET"
 	listValues := make([]interface{}, 0)
 	for i, _ := range s.value {
+		if s.key[i] == primary {
+			continue
+		}
 		arrQuery = append(arrQuery, " "+s.key[i]+"= $"+strconv.Itoa(i+1))
 		listValues = append(listValues, s.value[i])
 	}
