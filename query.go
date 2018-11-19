@@ -29,16 +29,18 @@ func (s structModel) UpdateWhere(primary, table string, primaryValue interface{}
 	query = "UPDATE " + table + " SET"
 	listValues := make([]interface{}, 0)
 	var totalIteraton int
+	iteration := 1
 	for i, _ := range s.value {
 		if s.key[i] == primary {
 			continue
 		}
-		arrQuery = append(arrQuery, " "+s.key[i]+"= $"+strconv.Itoa(i+1))
+		arrQuery = append(arrQuery, " "+s.key[i]+"= $"+strconv.Itoa(iteration))
 		listValues = append(listValues, s.value[i])
-		totalIteraton = i
+		iteration++
+		totalIteraton = iteration
 	}
 	query = query + strings.Join(arrQuery, ",")
-	query += " WHERE " + primary + "= $" + strconv.Itoa(totalIteraton+2)
+	query += " WHERE " + primary + "= $" + strconv.Itoa(totalIteraton)
 	listValues = append(listValues, primaryValue)
 	return query, listValues, nil
 }
