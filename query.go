@@ -14,12 +14,35 @@ type providerQuery interface {
 	Insert(table string) (query string, values []interface{}, err error)
 	Delete(table string) (query string, err error)
 	Update(primary, table string) (query string, values []interface{}, err error)
+	UpdateWhere(primary, table string, primaryValue interface{}) (query string, values []interface{}, err error)
 	Where(operatorCondition, operationBetweenCondition string) (query string, values []interface{}, err error)
 }
 
 /*
 	Defining the body function
 */
+func (s structModel) UpdateWhere(primary, table string, primaryValue interface{}) (query string, values []interface{}, err error) {
+	if s.err != nil {
+		return "", nil, s.err
+	}
+	var arrQuery []string
+	query = "UPDATE " + table + " SET"
+	listValues := make([]interface{}, 0)
+	var totalIteraton int
+	for i, _ := range s.value {
+		if s.key[i] == primary {
+			continue
+		}
+		arrQuery = append(arrQuery, " "+s.key[i]+"= $"+strconv.Itoa(i+1))
+		listValues = append(listValues, s.value[i])
+		totalIteraton = i
+	}
+	query = query + strings.Join(arrQuery, ",")
+	query += "WHERE " + primary + "= $" + strconv.Itoa(totalIteraton+1)
+	listValues = append(listValues, primaryValue)
+	return query, listValues, nil
+}
+
 //Function to generating query for query SELECT *
 func (s structModel) ViewAll(table string) (query string, err error) {
 	if s.err != nil {
