@@ -38,7 +38,7 @@ func (s structModel) UpdateWhere(primary, table string, primaryValue interface{}
 		totalIteraton = i
 	}
 	query = query + strings.Join(arrQuery, ",")
-	query += "WHERE " + primary + "= $" + strconv.Itoa(totalIteraton+1)
+	query += " WHERE " + primary + "= $" + strconv.Itoa(totalIteraton+2)
 	listValues = append(listValues, primaryValue)
 	return query, listValues, nil
 }
