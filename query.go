@@ -31,10 +31,10 @@ func (s structModel) UpdateWhere(primary, table string, primaryValue interface{}
 	var totalIteraton int
 	iteration := 1
 	for i, _ := range s.value {
-		if s.key[i] == primary {
+		if s.column[i] == primary {
 			continue
 		}
-		arrQuery = append(arrQuery, " "+s.key[i]+"= $"+strconv.Itoa(iteration))
+		arrQuery = append(arrQuery, " "+s.column[i]+"= $"+strconv.Itoa(iteration))
 		listValues = append(listValues, s.value[i])
 		iteration++
 		totalIteraton = iteration
@@ -53,7 +53,7 @@ func (s structModel) ViewAll(table string) (query string, err error) {
 	var arrQuery []string
 	query = "SELECT"
 	for i, _ := range s.value {
-		arrQuery = append(arrQuery, " "+s.key[i])
+		arrQuery = append(arrQuery, " "+s.column[i])
 	}
 	query = query + strings.Join(arrQuery, ",") + " FROM " + table
 	return query, nil
@@ -70,7 +70,7 @@ func (s structModel) Insert(table string) (query string, values []interface{}, e
 	listValue := make([]interface{}, 0)
 
 	for i, _ := range s.value {
-		arrQuery = append(arrQuery, " "+s.key[i])
+		arrQuery = append(arrQuery, " "+s.column[i])
 		valArr = append(valArr, " $"+strconv.Itoa(i+1))
 		listValue = append(listValue, s.value[i])
 	}
@@ -98,10 +98,10 @@ func (s structModel) Update(primary, table string) (query string, values []inter
 	query = "UPDATE " + table + " SET"
 	listValues := make([]interface{}, 0)
 	for i, _ := range s.value {
-		if s.key[i] == primary {
+		if s.column[i] == primary {
 			continue
 		}
-		arrQuery = append(arrQuery, " "+s.key[i]+"= $"+strconv.Itoa(i+1))
+		arrQuery = append(arrQuery, " "+s.column[i]+"= $"+strconv.Itoa(i+1))
 		listValues = append(listValues, s.value[i])
 	}
 	query = query + strings.Join(arrQuery, ",")
@@ -116,7 +116,7 @@ func (s structModel) Where(operatorCondition, operationBetweenCondition string) 
 	query = " WHERE"
 	listValues := make([]interface{}, 0)
 	for i, _ := range s.value {
-		query += " " + s.key[i] + " " + operatorCondition + " " + "$" + strconv.Itoa(i+1) + " " + operationBetweenCondition
+		query += " " + s.column[i] + " " + operatorCondition + " " + "$" + strconv.Itoa(i+1) + " " + operationBetweenCondition
 		listValues = append(listValues, s.value[i])
 	}
 	query = query[0:(len(query) - len(operationBetweenCondition))]
@@ -124,14 +124,14 @@ func (s structModel) Where(operatorCondition, operationBetweenCondition string) 
 }
 
 /*
-	Model that is used as key and value to create the query
-	key : database column name
+	Model that is used as column and value to create the query
+	column : database column name
 	value : expected value
 */
 type structModel struct {
-	key   []string
-	value []interface{}
-	err   error
+	column []string
+	value  []interface{}
+	err    error
 }
 
 type batchQuery interface {
@@ -184,7 +184,7 @@ func Conversion(model interface{}) providerQuery {
 	valReflect := reflect.ValueOf(model)
 	/*
 		Loop through the model to convert it to other model ('structModel')
-		to be treated as key and value
+		to be treated as column and value
 	*/
 	for i := 0; i < typeReflect.NumField(); i++ {
 		typField := typeReflect.Field(i)
@@ -192,12 +192,6 @@ func Conversion(model interface{}) providerQuery {
 		/*
 			Skip iteration if data is empty
 			now empty is considered as empty string ("") or 0 if the data type is integer
-		*/
-		if valueField.String() == "" {
-			continue
-		} /*
-			/*
-				Skipping for nested struct
 		*/
 		if typField.Type.Kind() == reflect.Struct {
 			continue
@@ -257,7 +251,72 @@ func Conversion(model interface{}) providerQuery {
 		vals = append(vals, valueField.Interface().(interface{}))
 
 	}
-	convertedModel := structModel{key: keys, value: vals, err: nil}
+	convertedModel := structModel{column: keys, value: vals, err: nil}
 	result := providerQuery(convertedModel)
 	return result
+}
+
+type joinQuery interface {
+	SelectAll(table ...string) (query string, err error)
+}
+
+type joinModel struct {
+	table []tableModel
+	err   error
+}
+
+type tableModel struct {
+	column []string
+}
+
+func (j joinModel) SelectAll(table ...string) (query string, err error) {
+	if j.err != nil {
+		return "", err
+	}
+	if len(table) != len(j.table) {
+		return "", errors.New("table name and model should be the same")
+	}
+	selectQuery := "SELECT"
+	fromQuery := " FROM "
+	var columns []string
+	var tables []string
+	for iteration := range table {
+		tables = append(tables, " "+table[iteration])
+		current := j.table[iteration].column
+		for columIteration := range current {
+			columns = append(columns, " "+handleSchemaAndTable(table[iteration])+"."+current[columIteration])
+		}
+	}
+	selectQuery = selectQuery + strings.Join(columns, ",")
+	fromQuery = fromQuery + strings.Join(tables, ",")
+	return selectQuery + fromQuery, nil
+}
+
+func JoinClause(model ...interface{}) joinQuery {
+	if len(model) < 1 {
+		return joinQuery(joinModel{err: errors.New("model is not found")})
+	}
+	var result []tableModel
+	for iteration := range model {
+		typeReflect := reflect.TypeOf(model[iteration])
+		var tempColumn []string
+		for i := 0; i < typeReflect.NumField(); i++ {
+			typeField := typeReflect.Field(i)
+			columnName, ok := typeField.Tag.Lookup("db")
+			if !ok {
+				return joinQuery(joinModel{err: errors.New("tag db in model not found")})
+			}
+			tempColumn = append(tempColumn, columnName)
+		}
+		result = append(result, tableModel{column: tempColumn})
+	}
+	return joinQuery(joinModel{table: result, err: nil})
+}
+
+func handleSchemaAndTable(value string) string {
+	dotIndex := strings.Index(value, ".")
+	if dotIndex < 0 {
+		return value
+	}
+	return value[dotIndex+1 : len(value)]
 }
