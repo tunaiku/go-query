@@ -257,7 +257,7 @@ func Conversion(model interface{}) providerQuery {
 }
 
 type joinQuery interface {
-	SelectAll(table ...string) (query string, err error)
+	SelectAll(table []string, on []string) (query string, err error)
 }
 
 type joinModel struct {
@@ -269,27 +269,27 @@ type tableModel struct {
 	column []string
 }
 
-func (j joinModel) SelectAll(table ...string) (query string, err error) {
+func (j joinModel) SelectAll(tables []string, on []string) (query string, err error) {
 	if j.err != nil {
 		return "", err
 	}
-	if len(table) != len(j.table) {
-		return "", errors.New("table name and model should be the same")
-	}
+
 	selectQuery := "SELECT"
-	fromQuery := " FROM "
+	fromQuery := "FROM"
 	var columns []string
-	var tables []string
-	for iteration := range table {
-		tables = append(tables, " "+table[iteration])
-		current := j.table[iteration].column
-		for columIteration := range current {
-			columns = append(columns, " "+handleSchemaAndTable(table[iteration])+"."+current[columIteration])
+
+	//iteration for columns
+	for tableIteration := range j.table {
+		currentTable := j.table[tableIteration]
+
+		for columnIteration := range currentTable.column {
+			columns = append(columns, currentTable.column[columnIteration])
 		}
 	}
-	selectQuery = selectQuery + strings.Join(columns, ",")
-	fromQuery = fromQuery + strings.Join(tables, ",")
-	return selectQuery + fromQuery, nil
+	selectQuery = selectQuery + " " + strings.Join(columns, ",")
+	fromQuery = " " + fromQuery + " " + strings.Join(tables, ",")
+	whereClause := strings.Join(on, " AND ")
+	return selectQuery + fromQuery + whereClause, nil
 }
 
 func JoinClause(model ...interface{}) joinQuery {
