@@ -288,7 +288,7 @@ func (j joinModel) SelectAll(tables []string, on []string) (query string, err er
 	}
 	selectQuery = selectQuery + " " + strings.Join(columns, ",")
 	fromQuery = " " + fromQuery + " " + strings.Join(tables, ",")
-	whereClause := strings.Join(on, " AND ")
+	whereClause := " WHERE " + strings.Join(on, " AND ")
 	return selectQuery + fromQuery + whereClause, nil
 }
 
